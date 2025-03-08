@@ -1,11 +1,18 @@
 import asyncio
 import time
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Form
 from datetime import datetime
 from os import environ
 from http import HTTPStatus
 
+from typing import Annotated
+
+from pydantic import BaseModel, Field
+
+from fastapi.staticfiles import StaticFiles
+
 app = FastAPI()
+app.mount('/static', StaticFiles(directory='static'))
 
 @app.get("/health")
 def health():
@@ -41,6 +48,7 @@ def info():
         'home': environ['HOMEPATH']
     }
 
+# http://localhost:3000/logs?start=2025-03-03&end=2025-03-04&level=info
 @app.get('/logs')
 def logs(start: datetime, end: datetime, level: str = None):
     # do a query to db to retrieve logs in this time range
@@ -64,3 +72,46 @@ def logs(start: datetime, end: datetime, level: str = None):
         'end': end,
         'level': level,
     }
+
+
+class Sale(BaseModel):
+    time: datetime
+    customer_id: str = Field(min_length=2)
+    amount: int = Field(gt=0)
+    price: float = Field(gt=0)
+
+
+@app.post('/sales/')
+def new_sale(sale: Sale):
+    # store in database
+    return {
+        "id": "1234" 
+    }
+
+
+@app.get('/sales/{id}')
+def get_sale(id: str) -> Sale:
+    # get the data from database
+    s = {
+        'time': datetime.now(),
+        "customer_id": "1234",
+        "amount": 100,
+        "price": 2.50,
+
+    }
+    return s
+
+from fastapi.responses import RedirectResponse
+from http import HTTPStatus
+
+@app.post('/survey')
+def survey(name: Annotated[str, Form()], 
+           happy: Annotated[str, Form()],
+           course: Annotated[str, Form()]):
+    print("submitted name: ", name)
+    print("submitted happy: ", happy)
+    print("submitted course: ", course)
+    return RedirectResponse(
+        url='/static/thanks.html',
+        status_code=HTTPStatus.FOUND
+    )
