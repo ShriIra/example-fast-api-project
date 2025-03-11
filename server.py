@@ -115,3 +115,57 @@ def survey(name: Annotated[str, Form()],
         url='/static/thanks.html',
         status_code=HTTPStatus.FOUND
     )
+
+from fastapi import Request
+
+@app.post('/example_raw_api')
+def example_raw_api(request: Request):
+    print(f"{request.headers}")
+    return {'headers': request.headers}
+
+
+MAX_IMAGE_SIZE = 5 * 1024 * 1024
+
+@app.post('/size')
+async def size(request: Request):
+    size = int(request.headers.get('Content-Length', 0))
+    if not size:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail='missing content-length header'
+        )
+    if size > MAX_IMAGE_SIZE:
+        raise HTTPException(
+            status_code=HTTPStatus.BAD_REQUEST,
+            detail='size can not exceed 5MB'
+        )
+    
+    data = await request.body()
+    from io import BytesIO
+    io = BytesIO(data)
+    from PIL import Image
+    image = Image.open(io)
+    return {'width': image.width, 'height': image.height}
+
+
+
+from enum import Enum
+from uuid import uuid4
+
+class OSImage(Enum):
+    ubuntu = 'ubuntu:24.04'
+    debian = 'debian:bookworm'
+    alpine = 'alpine:3.20'
+
+class VirtualMachine(BaseModel):
+    cpu_count: int = Field(gt=0, lt=65)
+    mem_size_gb: int = Field(ge=8, lt=1025)
+    image: OSImage
+
+vms = {}
+
+@app.post('/vm/start')
+def start_vm(vm: VirtualMachine):
+    id = uuid4()
+    vms[id] = vm
+    return {'id': id}
